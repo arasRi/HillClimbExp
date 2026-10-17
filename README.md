@@ -37,5 +37,12 @@ di **CloudSim Plus**, berdasarkan paper:
 ### 3. Ubah Skenario
 Edit konstanta di `HillClimbingExperiment.java`:
 ```java
-private static final int NUM_CLOUDLETS = 100;   // 100, 300, 500
-private static final String NEIGHBOURHOOD = "2-exchange"; // "2-exchange" / "insert"
+    private static final int NUM_DCS = 3;             // 3 Data Center
+    private static final int HOSTS_PER_DC = 3;        // 3 Host per DC
+    private static final int VMS_PER_HOST = 3;        // 3 VM per Host
+    private static final int TOTAL_VMS = NUM_DCS * HOSTS_PER_DC * VMS_PER_HOST; // 27 VM
+    
+    private static final int NUM_CLOUDLETS = 100;     
+    private static final long SEED = 42;
+    private static final int MAX_ITERATIONS = 500;
+    private static final String NEIGHBOURHOOD = "insert"; // "2-exchange" / "insert"
