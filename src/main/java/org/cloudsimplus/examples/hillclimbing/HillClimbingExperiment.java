@@ -1,20 +1,20 @@
 package org.cloudsimplus.examples.hillclimbing;
 
+import org.cloudsimplus.allocationpolicies.VmAllocationPolicySimple;
 import org.cloudsimplus.brokers.DatacenterBrokerSimple;
 import org.cloudsimplus.cloudlets.Cloudlet;
 import org.cloudsimplus.cloudlets.CloudletSimple;
 import org.cloudsimplus.core.CloudSimPlus;
 import org.cloudsimplus.datacenters.DatacenterSimple;
 import org.cloudsimplus.hosts.HostSimple;
-import org.cloudsimplus.resources.Pe;
-import org.cloudsimplus.resources.PeSimple;
-import org.cloudsimplus.utilizationmodels.UtilizationModelFull;
-import org.cloudsimplus.vms.VmSimple;
-import org.cloudsimplus.allocationpolicies.VmAllocationPolicySimple;
-import org.cloudsimplus.schedulers.cloudlet.CloudletSchedulerTimeShared;
-import org.cloudsimplus.schedulers.vm.VmSchedulerTimeShared;
 import org.cloudsimplus.provisioners.PeProvisionerSimple;
 import org.cloudsimplus.provisioners.ResourceProvisionerSimple;
+import org.cloudsimplus.resources.Pe;
+import org.cloudsimplus.resources.PeSimple;
+import org.cloudsimplus.schedulers.cloudlet.CloudletSchedulerTimeShared;
+import org.cloudsimplus.schedulers.vm.VmSchedulerTimeShared;
+import org.cloudsimplus.utilizationmodels.UtilizationModelFull;
+import org.cloudsimplus.vms.VmSimple;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -22,32 +22,40 @@ import java.util.Random;
 
 public class HillClimbingExperiment {
 
-    private static final int NUM_HOSTS = 3;
-    private static final int NUM_VMS = 12;
-    private static final int NUM_CLOUDLETS = 500; // Ubah sesuai skenario (100/300/500)
+    // KONFIGURASI MULTI-DATACENTER
+    private static final int NUM_DCS = 3;             // 3 Data Center
+    private static final int HOSTS_PER_DC = 3;        // 3 Host per DC
+    private static final int VMS_PER_HOST = 3;        // 3 VM per Host
+    private static final int TOTAL_VMS = NUM_DCS * HOSTS_PER_DC * VMS_PER_HOST; // 27 VM
+    
+    private static final int NUM_CLOUDLETS = 100;     
     private static final long SEED = 42;
     private static final int MAX_ITERATIONS = 500;
-    private static final String NEIGHBOURHOOD = "insert"; // atau "insert" "2-exchange"
+    private static final String NEIGHBOURHOOD = "insert"; 
 
     public static void main(String[] args) {
-        System.out.println("=== Hill-Climbing Cloudlet Scheduling ===");
-        System.out.println("Cloudlets: " + NUM_CLOUDLETS);
-        System.out.println("VMs: " + NUM_VMS);
+        System.out.println("=== Hill-Climbing Cloudlet Scheduling (Multi-DC) ===");
+        System.out.println("Data Centers: " + NUM_DCS);
+        System.out.println("Total VMs   : " + TOTAL_VMS);
+        System.out.println("Cloudlets   : " + NUM_CLOUDLETS);
         System.out.println("Neighbourhood: " + NEIGHBOURHOOD);
         System.out.println();
 
         // 1. Inisialisasi CloudSim
         CloudSimPlus simulation = new CloudSimPlus();
 
-        // 2. Bangun Data Center
-        DatacenterSimple datacenter = createDatacenter(simulation);
+        // 2. Bangun 3 Data Center
+        List<DatacenterSimple> datacenters = new ArrayList<>();
+        for (int i = 0; i < NUM_DCS; i++) {
+            datacenters.add(createDatacenter(simulation, "DC-" + (i + 1)));
+        }
 
         // 3. Buat Broker
         DatacenterBrokerSimple broker = new DatacenterBrokerSimple(simulation);
 
         // 4. Buat VM
         List<VmSimple> vmList = new ArrayList<>();
-        for (int i = 0; i < NUM_VMS; i++) {
+        for (int i = 0; i < TOTAL_VMS; i++) {
             vmList.add(createVm(i));
         }
         broker.submitVmList(vmList);
@@ -85,10 +93,12 @@ public class HillClimbingExperiment {
         System.out.println("Avg Waiting Time : " + String.format("%.2f", avgWaitingTime) + " detik");
     }
 
-    private static DatacenterSimple createDatacenter(CloudSimPlus simulation) {
+    // Method untuk membuat Data Center (bisa dipanggil berkali-kali)
+    private static DatacenterSimple createDatacenter(CloudSimPlus simulation, String name) {
         List<HostSimple> hostList = new ArrayList<>();
-        for (int i = 0; i < NUM_HOSTS; i++) {
+        for (int i = 0; i < HOSTS_PER_DC; i++) {
             List<Pe> peList = new ArrayList<>();
+            // 4 Core CPU per Host
             for (int j = 0; j < 4; j++) {
                 peList.add(new PeSimple(2600, new PeProvisionerSimple()));
             }
@@ -98,7 +108,10 @@ public class HillClimbingExperiment {
                 .setVmScheduler(new VmSchedulerTimeShared());
             hostList.add(host);
         }
-        return new DatacenterSimple(simulation, hostList, new VmAllocationPolicySimple());
+        
+        DatacenterSimple dc = new DatacenterSimple(simulation, hostList, new VmAllocationPolicySimple());
+        dc.setName(name); // Beri nama DC agar mudah dilacak
+        return dc;
     }
 
     private static VmSimple createVm(int id) {
@@ -126,6 +139,7 @@ public class HillClimbingExperiment {
         return list;
     }
 
+
     private static double calculateMakespan(List<? extends Cloudlet> cloudlets) {
         double max = 0;
         for (Cloudlet c : cloudlets) {
@@ -135,7 +149,6 @@ public class HillClimbingExperiment {
     }
 
     private static double calculateTotalCost(List<? extends Cloudlet> cloudlets) {
-        // Asumsi biaya $0.01 per detik per VM
         double costPerSecond = 0.01;
         double totalExec = 0;
         for (Cloudlet c : cloudlets) {
@@ -147,7 +160,7 @@ public class HillClimbingExperiment {
     private static double calculateAvgWaitingTime(List<? extends Cloudlet> cloudlets) {
         double totalWait = 0;
         for (Cloudlet c : cloudlets) {
-        	totalWait += (c.getStartTime() - c.getBrokerArrivalTime());
+            totalWait += (c.getStartTime() - c.getBrokerArrivalTime());
         }
         return totalWait / cloudlets.size();
     }
